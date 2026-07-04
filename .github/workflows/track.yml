@@ -32,6 +32,6 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/migration.csv docs/index.html
+          git add data/migration.csv data/tokyo_municipalities.csv docs/index.html
           git diff --cached --quiet || git commit -m "chore: update migration data $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           git push

@@ -151,9 +151,39 @@
     <div id="ranking-table"></div>
   </figure>
 
+  <h1 style="font-size:18px; margin: 40px 0 4px;">東京都 市区町村別トレンド</h1>
+  <p class="subtitle" style="margin-bottom: 0;">都内でどのエリアに人口が集中しているかを市区町村単位で可視化（年次データ）</p>
+
+  <figure class="chart-card">
+    <h2>__LATEST_TOKYO_YEAR__ 年 転入超過ランキング（都内62市区町村）</h2>
+    <p class="caption">青は転入超過（人口が流入）、赤は転出超過（人口が流出）。上位・下位ほど色が濃くなります。</p>
+    <div class="chart-scroll"><svg id="tokyo-ranking-chart"></svg></div>
+    <button class="table-toggle" data-target="tokyo-ranking-table">表で見る ▾</button>
+    <div id="tokyo-ranking-table" style="display:none"></div>
+  </figure>
+
+  <figure class="chart-card">
+    <h2>転入超過数トップ5（都内・最新年ベース）</h2>
+    <p class="caption">直近年の転入超過数が最も大きい5市区町村の推移（2020年〜）。</p>
+    <div class="chart-scroll"><svg id="tokyo-gainers-chart"></svg></div>
+    <div class="legend" id="tokyo-gainers-legend"></div>
+    <button class="table-toggle" data-target="tokyo-gainers-table">表で見る ▾</button>
+    <div id="tokyo-gainers-table" style="display:none"></div>
+  </figure>
+
+  <figure class="chart-card">
+    <h2>転出超過数ワースト5（都内・最新年ベース）</h2>
+    <p class="caption">直近年の転入超過数が最も小さい（転出超過が大きい）5市区町村の推移（2020年〜）。</p>
+    <div class="chart-scroll"><svg id="tokyo-losers-chart"></svg></div>
+    <div class="legend" id="tokyo-losers-legend"></div>
+    <button class="table-toggle" data-target="tokyo-losers-table">表で見る ▾</button>
+    <div id="tokyo-losers-table" style="display:none"></div>
+  </figure>
+
   <footer class="page-footer">
-    データ出典: <a href="https://www.e-stat.go.jp/statistics/00200523" target="_blank" rel="noopener">住民基本台帳人口移動報告（総務省統計局）e-Stat統計表ID 0003420473</a>
-    ／ 性別=総数、国籍=移動者（総数）を集計
+    データ出典: <a href="https://www.e-stat.go.jp/statistics/00200523" target="_blank" rel="noopener">住民基本台帳人口移動報告（総務省統計局）</a>
+    ／ 都道府県別: e-Stat統計表ID 0003420473（性別=総数、国籍=移動者）
+    ／ 東京都市区町村別: e-Stat統計表ID 0003419945（年齢=総数、性別=総数、国籍=移動者）
   </footer>
 </div>
 
@@ -339,10 +369,10 @@
   // ── Line charts (gainers / losers) ──────────────────────────────────
   const CAT_SLOTS = ["--cat-1", "--cat-2", "--cat-3", "--cat-4", "--cat-5"];
 
-  function renderLineChart(svgId, legendId, series) {
+  function renderLineChart(svgId, legendId, series, labels) {
     const svg = document.getElementById(svgId);
     svg.innerHTML = "";
-    const months = DATA.months;
+    const months = labels;
     const margin = { top: 16, right: 96, bottom: 24, left: 56 };
     const plotW = Math.max(560, months.length * 28);
     const plotH = 220;
@@ -369,10 +399,11 @@
       t.textContent = Math.round(v).toLocaleString("ja-JP");
       svg.appendChild(t);
     });
+    const tickEvery = months.length > 12 ? 3 : 1;
     months.forEach((m, i) => {
-      if (i % 3 !== 0) return;
+      if (i % tickEvery !== 0) return;
       const t = el("text", { x: xAt(i), y: margin.top + plotH + 16, "text-anchor": "middle" });
-      t.textContent = m.slice(2).replace("-", "/");
+      t.textContent = m.length === 4 ? m : m.slice(2).replace("-", "/");
       svg.appendChild(t);
     });
 
@@ -432,13 +463,13 @@
     hitArea.addEventListener("pointerleave", () => { crosshair.style.display = "none"; hideTooltip(); });
   }
 
-  function renderSeriesTable(hostId, series) {
+  function renderSeriesTable(hostId, series, labels, unitLabel) {
     const host = document.getElementById(hostId);
     const table = document.createElement("table");
     table.className = "data-table";
     const thead = document.createElement("thead");
     const headRow = document.createElement("tr");
-    ["月", ...series.map(s => s.name)].forEach(h => {
+    [unitLabel, ...series.map(s => s.name)].forEach(h => {
       const th = document.createElement("th");
       th.textContent = h;
       headRow.appendChild(th);
@@ -446,7 +477,7 @@
     thead.appendChild(headRow);
     table.appendChild(thead);
     const tbody = document.createElement("tbody");
-    DATA.months.forEach((m, i) => {
+    labels.forEach((m, i) => {
       const tr = document.createElement("tr");
       const mTd = document.createElement("td");
       mTd.textContent = m;
@@ -463,14 +494,14 @@
     host.appendChild(table);
   }
 
-  // ── Ranking table ────────────────────────────────────────────────────
-  function renderRankingTable() {
-    const host = document.getElementById("ranking-table");
+  // ── Ranking table (都道府県 / 市区町村 共用) ─────────────────────────
+  function renderRankingTable(hostId, rows, nameHeader) {
+    const host = document.getElementById(hostId);
     const table = document.createElement("table");
     table.className = "data-table";
     const thead = document.createElement("thead");
     const headRow = document.createElement("tr");
-    ["順位", "都道府県", "転入超過数", "転入者数", "転出者数"].forEach(h => {
+    ["順位", nameHeader, "転入超過数", "転入者数", "転出者数"].forEach(h => {
       const th = document.createElement("th");
       th.textContent = h;
       headRow.appendChild(th);
@@ -478,7 +509,7 @@
     thead.appendChild(headRow);
     table.appendChild(thead);
     const tbody = document.createElement("tbody");
-    DATA.ranking.forEach((row, i) => {
+    rows.forEach((row, i) => {
       const tr = document.createElement("tr");
       const cells = [
         String(i + 1),
@@ -498,6 +529,45 @@
     table.appendChild(tbody);
     host.innerHTML = "";
     host.appendChild(table);
+  }
+
+  // ── Diverging bar ranking (東京都 市区町村) ───────────────────────────
+  function renderBarRanking(svgId, rows, colorCap) {
+    const svg = document.getElementById(svgId);
+    svg.innerHTML = "";
+    const rowH = 13, nameW = 100, plotW = 420, marginTop = 10, marginBottom = 10;
+    const width = nameW + plotW + 12;
+    const height = marginTop + rows.length * rowH + marginBottom;
+    svg.setAttribute("width", width);
+    svg.setAttribute("height", height);
+    svg.setAttribute("viewBox", "0 0 " + width + " " + height);
+
+    const domainMax = Math.max(1, ...rows.map(r => Math.abs(r.net)));
+    const zeroX = nameW + plotW / 2;
+    const pxPerUnit = (plotW / 2 - 4) / domainMax;
+
+    svg.appendChild(el("line", { x1: zeroX, x2: zeroX, y1: marginTop, y2: height - marginBottom, class: "axis-line" }));
+
+    rows.forEach((row, i) => {
+      const y = marginTop + i * rowH;
+      const label = el("text", { x: nameW - 8, y: y + rowH - 3, "text-anchor": "end" });
+      label.textContent = row.name;
+      svg.appendChild(label);
+
+      const barLen = Math.abs(row.net) * pxPerUnit;
+      const x = row.net >= 0 ? zeroX : zeroX - barLen;
+      const rect = el("rect", { x: x, y: y + 1, width: Math.max(barLen, 1), height: rowH - 3, fill: divergingColor(row.net, colorCap), rx: 1 });
+      rect.style.cursor = "pointer";
+      rect.addEventListener("pointermove", (e) => {
+        showTooltip(e.clientX, e.clientY, row.name, [
+          { label: "転入超過数", value: fmt(row.net) + " 人" },
+          { label: "転入者数", value: row.in.toLocaleString("ja-JP") + " 人" },
+          { label: "転出者数", value: row.out.toLocaleString("ja-JP") + " 人" },
+        ]);
+      });
+      rect.addEventListener("pointerleave", hideTooltip);
+      svg.appendChild(rect);
+    });
   }
 
   // ── Table-view toggles ───────────────────────────────────────────────
@@ -523,11 +593,18 @@
   function renderAll() {
     renderHeatmap();
     renderHeatmapTable();
-    renderLineChart("gainers-chart", "gainers-legend", DATA.gainers);
-    renderSeriesTable("gainers-table", DATA.gainers);
-    renderLineChart("losers-chart", "losers-legend", DATA.losers);
-    renderSeriesTable("losers-table", DATA.losers);
-    renderRankingTable();
+    renderLineChart("gainers-chart", "gainers-legend", DATA.gainers, DATA.months);
+    renderSeriesTable("gainers-table", DATA.gainers, DATA.months, "月");
+    renderLineChart("losers-chart", "losers-legend", DATA.losers, DATA.months);
+    renderSeriesTable("losers-table", DATA.losers, DATA.months, "月");
+    renderRankingTable("ranking-table", DATA.ranking, "都道府県");
+
+    renderBarRanking("tokyo-ranking-chart", DATA.tokyo.ranking, DATA.tokyo.rankingCapAbs);
+    renderRankingTable("tokyo-ranking-table", DATA.tokyo.ranking, "市区町村");
+    renderLineChart("tokyo-gainers-chart", "tokyo-gainers-legend", DATA.tokyo.gainers, DATA.tokyo.years);
+    renderSeriesTable("tokyo-gainers-table", DATA.tokyo.gainers, DATA.tokyo.years, "年");
+    renderLineChart("tokyo-losers-chart", "tokyo-losers-legend", DATA.tokyo.losers, DATA.tokyo.years);
+    renderSeriesTable("tokyo-losers-table", DATA.tokyo.losers, DATA.tokyo.years, "年");
   }
 
   const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
