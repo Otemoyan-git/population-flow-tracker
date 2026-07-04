@@ -1,0 +1,537 @@
+<title>人口移動トレンド・ダッシュボード</title>
+<style>
+  :root, [data-theme="light"] {
+    --page:            #f9f9f7;
+    --surface-1:       #fcfcfb;
+    --text-primary:    #0b0b0b;
+    --text-secondary:  #52514e;
+    --text-muted:      #898781;
+    --grid:            #e1e0d9;
+    --baseline:        #c3c2b7;
+    --border:          rgba(11,11,11,0.10);
+    --delta-good:      #006300;
+    --delta-bad:       #d03b3b;
+    --div-pos:         #2a78d6;
+    --div-neg:         #e34948;
+    --div-mid:         #f0efec;
+    --cat-1: #2a78d6; --cat-2: #1baf7a; --cat-3: #eda100;
+    --cat-4: #008300; --cat-5: #4a3aa7;
+  }
+  [data-theme="dark"] {
+    --page:            #0d0d0d;
+    --surface-1:       #1a1a19;
+    --text-primary:    #ffffff;
+    --text-secondary:  #c3c2b7;
+    --text-muted:      #898781;
+    --grid:            #2c2c2a;
+    --baseline:        #383835;
+    --border:          rgba(255,255,255,0.10);
+    --delta-good:      #0ca30c;
+    --delta-bad:       #d03b3b;
+    --div-pos:         #3987e5;
+    --div-neg:         #e66767;
+    --div-mid:         #383835;
+    --cat-1: #3987e5; --cat-2: #199e70; --cat-3: #c98500;
+    --cat-4: #008300; --cat-5: #9085e9;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 20px 80px; }
+  header.page-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 16px; margin-bottom: 8px;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .subtitle { color: var(--text-secondary); font-size: 14px; margin: 0; }
+  .meta { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
+  button.theme-toggle {
+    border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary);
+    border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer;
+  }
+  figure.chart-card {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 20px; margin: 24px 0; overflow: visible;
+  }
+  figure.chart-card h2 { font-size: 16px; margin: 0 0 4px; }
+  figure.chart-card .caption { color: var(--text-secondary); font-size: 13px; margin: 0 0 16px; }
+  .chart-scroll { overflow-x: auto; }
+  svg text { fill: var(--text-muted); font-size: 11px; }
+  svg .axis-line { stroke: var(--baseline); stroke-width: 1; }
+  svg .grid-line { stroke: var(--grid); stroke-width: 1; }
+  svg .end-label { fill: var(--text-primary); font-size: 12px; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 12px 0 4px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+  .legend-swatch { width: 14px; height: 2px; border-radius: 1px; }
+
+  .table-toggle {
+    border: none; background: none; color: var(--text-secondary); font-size: 12px;
+    text-decoration: underline; cursor: pointer; padding: 0; margin-top: 8px;
+  }
+  table.data-table {
+    width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px;
+  }
+  table.data-table th, table.data-table td {
+    text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--grid);
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  table.data-table th:first-child, table.data-table td:first-child,
+  table.data-table th:nth-child(2), table.data-table td:nth-child(2) {
+    text-align: left; font-variant-numeric: normal;
+  }
+  table.data-table thead th { color: var(--text-muted); font-weight: 600; font-size: 12px; }
+  .rank-net.pos { color: var(--delta-good); }
+  .rank-net.neg { color: var(--delta-bad); }
+
+  #tooltip {
+    position: fixed; pointer-events: none; z-index: 50; display: none;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    max-width: 260px;
+  }
+  #tooltip .tt-title { color: var(--text-secondary); margin-bottom: 4px; }
+  #tooltip .tt-row { display: flex; align-items: center; gap: 6px; justify-content: space-between; }
+  #tooltip .tt-key { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); }
+  #tooltip .tt-swatch { width: 10px; height: 2px; flex: none; }
+  #tooltip .tt-value { font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+  .scale-legend { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-muted); margin-top: 10px; }
+  .scale-bar { width: 160px; height: 10px; border-radius: 5px; }
+
+  footer.page-footer { color: var(--text-muted); font-size: 12px; margin-top: 32px; }
+  footer.page-footer a { color: var(--text-secondary); }
+</style>
+
+<div class="wrap">
+  <header class="page-header">
+    <div>
+      <h1>人口移動トレンド・ダッシュボード</h1>
+      <p class="subtitle">住民基本台帳人口移動報告（総務省統計局）に基づく都道府県別の転入出トレンド</p>
+      <p class="meta">最新データ: __LATEST_MONTH__ ／ 生成日時（UTC）: __GENERATED_AT__</p>
+    </div>
+    <button class="theme-toggle" id="theme-toggle" type="button">ダークモード切替</button>
+  </header>
+
+  <figure class="chart-card">
+    <h2>都道府県別 転入超過数の推移（ヒートマップ）</h2>
+    <p class="caption">青は転入超過（人口が流入）、赤は転出超過（人口が流出）。色の濃さは上位10%点で頭打ちにしています。</p>
+    <div class="chart-scroll"><svg id="heatmap"></svg></div>
+    <div class="scale-legend" id="heatmap-scale"></div>
+    <button class="table-toggle" data-target="heatmap-table">表で見る ▾</button>
+    <div id="heatmap-table" style="display:none"></div>
+  </figure>
+
+  <figure class="chart-card">
+    <h2>転入超過数トップ5（直近月ベース）</h2>
+    <p class="caption">直近月の転入超過数が最も大きい5都道府県の推移。</p>
+    <div class="chart-scroll"><svg id="gainers-chart"></svg></div>
+    <div class="legend" id="gainers-legend"></div>
+    <button class="table-toggle" data-target="gainers-table">表で見る ▾</button>
+    <div id="gainers-table" style="display:none"></div>
+  </figure>
+
+  <figure class="chart-card">
+    <h2>転出超過数ワースト5（直近月ベース）</h2>
+    <p class="caption">直近月の転入超過数が最も小さい（転出超過が大きい）5都道府県の推移。</p>
+    <div class="chart-scroll"><svg id="losers-chart"></svg></div>
+    <div class="legend" id="losers-legend"></div>
+    <button class="table-toggle" data-target="losers-table">表で見る ▾</button>
+    <div id="losers-table" style="display:none"></div>
+  </figure>
+
+  <figure class="chart-card">
+    <h2>__LATEST_MONTH__ 転入超過ランキング（全47都道府県）</h2>
+    <p class="caption">プラスは転入超過（人口流入）、マイナスは転出超過（人口流出）。</p>
+    <div id="ranking-table"></div>
+  </figure>
+
+  <footer class="page-footer">
+    データ出典: <a href="https://www.e-stat.go.jp/statistics/00200523" target="_blank" rel="noopener">住民基本台帳人口移動報告（総務省統計局）e-Stat統計表ID 0003420473</a>
+    ／ 性別=総数、国籍=移動者（総数）を集計
+  </footer>
+</div>
+
+<div id="tooltip"></div>
+
+<script type="application/json" id="data-payload">__DATA_JSON__</script>
+<script>
+(function () {
+  "use strict";
+  const DATA = JSON.parse(document.getElementById("data-payload").textContent);
+  const SVGNS = "http://www.w3.org/2000/svg";
+
+  function el(tag, attrs) {
+    const n = document.createElementNS(SVGNS, tag);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    return n;
+  }
+  function fmt(n) {
+    if (n === null || n === undefined) return "—";
+    const sign = n > 0 ? "+" : "";
+    return sign + n.toLocaleString("ja-JP");
+  }
+  function cssVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+  function hexToRgb(hex) {
+    const h = hex.replace("#", "");
+    return [parseInt(h.substr(0, 2), 16), parseInt(h.substr(2, 2), 16), parseInt(h.substr(4, 2), 16)];
+  }
+  function rgbToHex(rgb) {
+    return "#" + rgb.map(v => clamp(Math.round(v), 0, 255).toString(16).padStart(2, "0")).join("");
+  }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function lerpRgb(c1, c2, t) { return [lerp(c1[0], c2[0], t), lerp(c1[1], c2[1], t), lerp(c1[2], c2[2], t)]; }
+
+  function divergingColor(value, cap) {
+    if (value === null || value === undefined) return cssVar("--grid");
+    const t = clamp(value / cap, -1, 1);
+    const neg = hexToRgb(cssVar("--div-neg"));
+    const mid = hexToRgb(cssVar("--div-mid"));
+    const pos = hexToRgb(cssVar("--div-pos"));
+    if (t < 0) return rgbToHex(lerpRgb(mid, neg, -t));
+    return rgbToHex(lerpRgb(mid, pos, t));
+  }
+
+  // ── Tooltip ──────────────────────────────────────────────────────────
+  const tooltip = document.getElementById("tooltip");
+  function showTooltip(x, y, titleText, rows) {
+    tooltip.innerHTML = "";
+    const title = document.createElement("div");
+    title.className = "tt-title";
+    title.textContent = titleText;
+    tooltip.appendChild(title);
+    rows.forEach(row => {
+      const r = document.createElement("div");
+      r.className = "tt-row";
+      const key = document.createElement("div");
+      key.className = "tt-key";
+      if (row.color) {
+        const sw = document.createElement("span");
+        sw.className = "tt-swatch";
+        sw.style.background = row.color;
+        key.appendChild(sw);
+      }
+      const label = document.createElement("span");
+      label.textContent = row.label;
+      key.appendChild(label);
+      const val = document.createElement("div");
+      val.className = "tt-value";
+      val.textContent = row.value;
+      r.appendChild(key);
+      r.appendChild(val);
+      tooltip.appendChild(r);
+    });
+    tooltip.style.display = "block";
+    const pad = 14;
+    let left = x + pad, top = y + pad;
+    if (left + 260 > window.innerWidth) left = x - 260 - pad;
+    if (top + 120 > window.innerHeight) top = y - 120 - pad;
+    tooltip.style.left = left + "px";
+    tooltip.style.top = top + "px";
+  }
+  function hideTooltip() { tooltip.style.display = "none"; }
+
+  // ── Heatmap ──────────────────────────────────────────────────────────
+  function renderHeatmap() {
+    const svg = document.getElementById("heatmap");
+    svg.innerHTML = "";
+    const rows = DATA.heatmap.rows;
+    const months = DATA.months;
+    const cap = DATA.heatmap.capAbs;
+
+    const rowLabelW = 64, cellW = 32, cellH = 11, topPad = 20, leftPad = 8;
+    const width = leftPad + rowLabelW + months.length * cellW;
+    const height = topPad + rows.length * cellH + 10;
+    svg.setAttribute("width", width);
+    svg.setAttribute("height", height);
+    svg.setAttribute("viewBox", "0 0 " + width + " " + height);
+
+    months.forEach((m, ci) => {
+      if (ci % 3 !== 0) return;
+      const t = el("text", { x: leftPad + rowLabelW + ci * cellW + cellW / 2, y: topPad - 6, "text-anchor": "middle" });
+      t.textContent = m.slice(2).replace("-", "/");
+      svg.appendChild(t);
+    });
+
+    rows.forEach((row, ri) => {
+      const y = topPad + ri * cellH;
+      const label = el("text", { x: leftPad + rowLabelW - 8, y: y + cellH - 2, "text-anchor": "end" });
+      label.textContent = row.name;
+      svg.appendChild(label);
+
+      row.values.forEach((v, ci) => {
+        const x = leftPad + rowLabelW + ci * cellW;
+        const rect = el("rect", {
+          x: x, y: y, width: cellW - 1, height: cellH - 1,
+          fill: divergingColor(v, cap), rx: 1,
+        });
+        rect.style.cursor = "pointer";
+        rect.addEventListener("pointermove", (e) => {
+          showTooltip(e.clientX, e.clientY, row.name + " ／ " + months[ci], [
+            { label: "転入超過数", value: fmt(v) + " 人" },
+          ]);
+        });
+        rect.addEventListener("pointerleave", hideTooltip);
+        svg.appendChild(rect);
+      });
+    });
+
+    renderScaleLegend(cap);
+  }
+
+  function renderScaleLegend(cap) {
+    const c = document.getElementById("heatmap-scale");
+    c.innerHTML = "";
+    const grad = document.createElementNS(SVGNS, "svg");
+    grad.setAttribute("width", "160");
+    grad.setAttribute("height", "10");
+    const steps = 20;
+    for (let i = 0; i <= steps; i++) {
+      const v = -cap + (2 * cap * i) / steps;
+      const rect = el("rect", { x: (i * 160) / steps, y: 0, width: 160 / steps + 1, height: 10, fill: divergingColor(v, cap) });
+      grad.appendChild(rect);
+    }
+    c.appendChild(document.createTextNode("転出超過 −" + cap.toLocaleString("ja-JP")));
+    c.appendChild(grad);
+    c.appendChild(document.createTextNode("転入超過 +" + cap.toLocaleString("ja-JP")));
+  }
+
+  function renderHeatmapTable() {
+    const host = document.getElementById("heatmap-table");
+    const table = document.createElement("table");
+    table.className = "data-table";
+    const thead = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    ["都道府県", ...DATA.months].forEach(h => {
+      const th = document.createElement("th");
+      th.textContent = h;
+      headRow.appendChild(th);
+    });
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+    const tbody = document.createElement("tbody");
+    DATA.heatmap.rows.forEach(row => {
+      const tr = document.createElement("tr");
+      const nameTd = document.createElement("td");
+      nameTd.textContent = row.name;
+      tr.appendChild(nameTd);
+      row.values.forEach(v => {
+        const td = document.createElement("td");
+        td.textContent = fmt(v);
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    host.innerHTML = "";
+    host.appendChild(table);
+  }
+
+  // ── Line charts (gainers / losers) ──────────────────────────────────
+  const CAT_SLOTS = ["--cat-1", "--cat-2", "--cat-3", "--cat-4", "--cat-5"];
+
+  function renderLineChart(svgId, legendId, series) {
+    const svg = document.getElementById(svgId);
+    svg.innerHTML = "";
+    const months = DATA.months;
+    const margin = { top: 16, right: 96, bottom: 24, left: 56 };
+    const plotW = Math.max(560, months.length * 28);
+    const plotH = 220;
+    const width = margin.left + plotW + margin.right;
+    const height = margin.top + plotH + margin.bottom;
+    svg.setAttribute("width", width);
+    svg.setAttribute("height", height);
+    svg.setAttribute("viewBox", "0 0 " + width + " " + height);
+
+    let allVals = [];
+    series.forEach(s => s.values.forEach(v => { if (v !== null) allVals.push(v); }));
+    let maxV = Math.max(0, ...allVals), minV = Math.min(0, ...allVals);
+    if (maxV === minV) { maxV += 1; minV -= 1; }
+    const pad = (maxV - minV) * 0.1;
+    maxV += pad; minV -= pad;
+
+    const xAt = (i) => margin.left + (i / (months.length - 1)) * plotW;
+    const yAt = (v) => margin.top + plotH - ((v - minV) / (maxV - minV)) * plotH;
+
+    [minV, 0, maxV].forEach(v => {
+      const y = yAt(v);
+      svg.appendChild(el("line", { x1: margin.left, x2: margin.left + plotW, y1: y, y2: y, class: v === 0 ? "axis-line" : "grid-line" }));
+      const t = el("text", { x: margin.left - 8, y: y + 4, "text-anchor": "end" });
+      t.textContent = Math.round(v).toLocaleString("ja-JP");
+      svg.appendChild(t);
+    });
+    months.forEach((m, i) => {
+      if (i % 3 !== 0) return;
+      const t = el("text", { x: xAt(i), y: margin.top + plotH + 16, "text-anchor": "middle" });
+      t.textContent = m.slice(2).replace("-", "/");
+      svg.appendChild(t);
+    });
+
+    const legend = document.getElementById(legendId);
+    legend.innerHTML = "";
+
+    series.forEach((s, si) => {
+      const color = cssVar(CAT_SLOTS[si % CAT_SLOTS.length]);
+      const pts = s.values.map((v, i) => (v === null ? null : [xAt(i), yAt(v)]));
+      let d = "";
+      pts.forEach((p, i) => {
+        if (p === null) return;
+        d += (d === "" ? "M" : "L") + p[0].toFixed(1) + "," + p[1].toFixed(1) + " ";
+      });
+      svg.appendChild(el("path", { d: d, fill: "none", stroke: color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+
+      let lastPt = null;
+      for (let i = pts.length - 1; i >= 0; i--) { if (pts[i]) { lastPt = pts[i]; break; } }
+      if (lastPt) {
+        svg.appendChild(el("circle", { cx: lastPt[0], cy: lastPt[1], r: 4, fill: color, stroke: cssVar("--surface-1"), "stroke-width": 2 }));
+        const lbl = el("text", { x: lastPt[0] + 8, y: lastPt[1] + 4, class: "end-label" });
+        lbl.textContent = s.name;
+        svg.appendChild(lbl);
+      }
+
+      const item = document.createElement("div");
+      item.className = "legend-item";
+      const sw = document.createElement("span");
+      sw.className = "legend-swatch";
+      sw.style.background = color;
+      const label = document.createElement("span");
+      label.textContent = s.name;
+      item.appendChild(sw);
+      item.appendChild(label);
+      legend.appendChild(item);
+    });
+
+    // クロスヘア + ツールチップ
+    const hitArea = el("rect", { x: margin.left, y: margin.top, width: plotW, height: plotH, fill: "transparent" });
+    const crosshair = el("line", { y1: margin.top, y2: margin.top + plotH, class: "grid-line", style: "display:none" });
+    svg.appendChild(crosshair);
+    svg.appendChild(hitArea);
+
+    hitArea.addEventListener("pointermove", (e) => {
+      const rect = svg.getBoundingClientRect();
+      const scale = width / rect.width;
+      const localX = (e.clientX - rect.left) * scale;
+      const idx = clamp(Math.round(((localX - margin.left) / plotW) * (months.length - 1)), 0, months.length - 1);
+      crosshair.setAttribute("x1", xAt(idx));
+      crosshair.setAttribute("x2", xAt(idx));
+      crosshair.style.display = "block";
+      const rows = series
+        .map((s, si) => ({ label: s.name, value: fmt(s.values[idx]) + " 人", color: cssVar(CAT_SLOTS[si % CAT_SLOTS.length]), raw: s.values[idx] }))
+        .sort((a, b) => (b.raw ?? -Infinity) - (a.raw ?? -Infinity));
+      showTooltip(e.clientX, e.clientY, months[idx], rows);
+    });
+    hitArea.addEventListener("pointerleave", () => { crosshair.style.display = "none"; hideTooltip(); });
+  }
+
+  function renderSeriesTable(hostId, series) {
+    const host = document.getElementById(hostId);
+    const table = document.createElement("table");
+    table.className = "data-table";
+    const thead = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    ["月", ...series.map(s => s.name)].forEach(h => {
+      const th = document.createElement("th");
+      th.textContent = h;
+      headRow.appendChild(th);
+    });
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+    const tbody = document.createElement("tbody");
+    DATA.months.forEach((m, i) => {
+      const tr = document.createElement("tr");
+      const mTd = document.createElement("td");
+      mTd.textContent = m;
+      tr.appendChild(mTd);
+      series.forEach(s => {
+        const td = document.createElement("td");
+        td.textContent = fmt(s.values[i]);
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    host.innerHTML = "";
+    host.appendChild(table);
+  }
+
+  // ── Ranking table ────────────────────────────────────────────────────
+  function renderRankingTable() {
+    const host = document.getElementById("ranking-table");
+    const table = document.createElement("table");
+    table.className = "data-table";
+    const thead = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    ["順位", "都道府県", "転入超過数", "転入者数", "転出者数"].forEach(h => {
+      const th = document.createElement("th");
+      th.textContent = h;
+      headRow.appendChild(th);
+    });
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+    const tbody = document.createElement("tbody");
+    DATA.ranking.forEach((row, i) => {
+      const tr = document.createElement("tr");
+      const cells = [
+        String(i + 1),
+        row.name,
+        fmt(row.net),
+        row.in.toLocaleString("ja-JP"),
+        row.out.toLocaleString("ja-JP"),
+      ];
+      cells.forEach((text, ci) => {
+        const td = document.createElement("td");
+        td.textContent = text;
+        if (ci === 2) td.className = "rank-net " + (row.net >= 0 ? "pos" : "neg");
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    host.innerHTML = "";
+    host.appendChild(table);
+  }
+
+  // ── Table-view toggles ───────────────────────────────────────────────
+  document.querySelectorAll(".table-toggle").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const target = document.getElementById(btn.dataset.target);
+      const show = target.style.display === "none";
+      target.style.display = show ? "block" : "none";
+      btn.textContent = btn.textContent.replace(show ? "▾" : "▴", show ? "▴" : "▾");
+    });
+  });
+
+  // ── Theme toggle ─────────────────────────────────────────────────────
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    renderAll();
+  }
+  document.getElementById("theme-toggle").addEventListener("click", () => {
+    const current = document.documentElement.getAttribute("data-theme") || "light";
+    applyTheme(current === "light" ? "dark" : "light");
+  });
+
+  function renderAll() {
+    renderHeatmap();
+    renderHeatmapTable();
+    renderLineChart("gainers-chart", "gainers-legend", DATA.gainers);
+    renderSeriesTable("gainers-table", DATA.gainers);
+    renderLineChart("losers-chart", "losers-legend", DATA.losers);
+    renderSeriesTable("losers-table", DATA.losers);
+    renderRankingTable();
+  }
+
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  document.documentElement.setAttribute("data-theme", prefersDark ? "dark" : "light");
+  renderAll();
+})();
+</script>
