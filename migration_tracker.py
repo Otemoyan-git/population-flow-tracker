@@ -40,6 +40,13 @@ def _backfill_from_code(years: int) -> str:
     return _time_code(year, month)
 
 
+def _months_ago_code(months: int) -> str:
+    now = datetime.now(timezone.utc)
+    total = now.year * 12 + (now.month - 1) - months
+    year, month = divmod(total, 12)
+    return _time_code(year, month + 1)
+
+
 # ── e-Stat API 取得 ──────────────────────────────────────────────────────
 
 def _fetch_values(app_id: str, stats_data_id: str, extra_params: dict) -> list[dict]:
@@ -229,7 +236,10 @@ def main(app_id: str, backfill: bool = False) -> list[MigrationRecord]:
     known = load_known(data_path)
     print(f"既存レコード数: {len(known)}")
 
-    cd_time_from = _backfill_from_code(config.BACKFILL_YEARS) if backfill or not known else None
+    if backfill or not known:
+        cd_time_from = _backfill_from_code(config.BACKFILL_YEARS)
+    else:
+        cd_time_from = _months_ago_code(config.RECENT_MONTHS)
     fetched = fetch_migration(app_id, cd_time_from)
     print(f"取得レコード数: {len(fetched)}")
 

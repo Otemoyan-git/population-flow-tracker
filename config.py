@@ -17,6 +17,9 @@ CAT02_TOTAL = "60000"   # 国籍: 移動者（総数）
 # 初回バックフィルで遡る年数
 BACKFILL_YEARS = 10
 
+# 通常実行（バックフィル以外）で遡る月数。e-Statの遡及改定を拾うための余裕を持たせる
+RECENT_MONTHS = 3
+
 # データ保存先
 DATA_FILE = "data/migration.csv"
 
